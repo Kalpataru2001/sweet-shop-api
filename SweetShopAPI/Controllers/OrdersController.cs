@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SweetShopAPI.Data;
 using SweetShopAPI.Models;
 
@@ -29,6 +30,15 @@ namespace SweetShopAPI.Controllers
 
             // 3. Return success
             return CreatedAtAction(nameof(PlaceOrder), new { id = order.Id }, order);
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
+        {
+            // Return all orders, newest first
+            return await _context.Orders
+                                 .OrderByDescending(o => o.OrderDate)
+                                 .ToListAsync();
         }
     }
 }
