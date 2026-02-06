@@ -7,13 +7,7 @@ builder.Services.AddDbContext<SweetShopAPI.Data.AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 2. Enable CORS (So your Angular app can talk to this API later)
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAngularApp",
-        policy => policy.WithOrigins("http://localhost:4200") // Your Angular URL
-                        .AllowAnyMethod()
-                        .AllowAnyHeader());
-});
+
 
 
 builder.Services.AddControllers();
@@ -21,7 +15,21 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var app = builder.Build();
+// Add this block
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()  // Allows Netlify to connect
+                  .AllowAnyMethod()  // Allows GET, POST, PUT, DELETE
+                  .AllowAnyHeader();
+        });
+});
+
+var app = builder.Build(); // This line is already there
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -31,7 +39,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAngularApp");
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
