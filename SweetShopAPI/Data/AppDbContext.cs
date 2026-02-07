@@ -10,5 +10,6 @@ namespace SweetShopAPI.Data
         // This links your C# class to the "Sweets" table in Supabase
         public DbSet<Sweet> Sweets { get; set; }
         public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
     }
 }
