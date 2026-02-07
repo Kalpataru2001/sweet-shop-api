@@ -23,5 +23,7 @@ namespace SweetShopAPI.Models
         [Column("orderDate")]
         public DateTime OrderDate { get; set; } = DateTime.UtcNow;
         public List<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+        [Column("status")]
+        public string Status { get; set; } = "Pending"; // New Column
     }
 }

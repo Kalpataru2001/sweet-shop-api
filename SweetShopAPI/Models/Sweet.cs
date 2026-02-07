@@ -24,5 +24,13 @@ namespace SweetShopAPI.Models
 
         [Column("tag")]
         public string? Tag { get; set; }
+        [Column("stockQuantity")]
+        public decimal StockQuantity { get; set; }
+
+        // ✅ KEEP THIS ONE (New Unit field)
+        [Column("unit")]
+        public string Unit { get; set; } = "piece";
+        [Column("weightPerPiece")]
+        public decimal? WeightPerPiece { get; set; }
     }
 }

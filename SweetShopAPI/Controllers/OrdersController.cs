@@ -21,49 +21,68 @@ namespace SweetShopAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Order>> PlaceOrder(Order order)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // 1. Create a clean Order object
+                // 1. Create a clean Order object (Ignore frontend total/status)
                 var newOrder = new Order
                 {
                     CustomerName = order.CustomerName,
                     CustomerPhone = order.CustomerPhone,
                     CustomerAddress = order.CustomerAddress,
-                    TotalAmount = order.TotalAmount,
                     OrderDate = DateTime.UtcNow,
-                    OrderItems = new List<OrderItem>()
+                    Status = "Pending",
+                    OrderItems = new List<OrderItem>(),
+                    TotalAmount = 0 // We will calculate this ourselves!
                 };
 
-                // 2. Map Items safely
-                if (order.OrderItems != null)
+                // 2. Loop through items to validate Stock & Price
+                if (order.OrderItems != null && order.OrderItems.Any())
                 {
                     foreach (var item in order.OrderItems)
                     {
-                        // VALIDATION: Check if Sweet exists before adding!
-                        var sweetExists = await _context.Sweets.AnyAsync(s => s.Id == item.SweetId);
-                        if (!sweetExists)
+                        // FETCH REAL DATA FROM DB
+                        var sweet = await _context.Sweets.FindAsync(item.SweetId);
+
+                        if (sweet == null)
                         {
-                            return BadRequest($"❌ Error: Sweet with ID {item.SweetId} does not exist in the database!");
+                            return BadRequest($"❌ Error: Sweet with ID {item.SweetId} does not exist!");
                         }
 
-                        newOrder.OrderItems.Add(new OrderItem
+                        // STOCK CHECK
+                        if (sweet.StockQuantity < item.Quantity)
+                        {
+                            return BadRequest($"❌ Error: Not enough stock for {sweet.Name}. Only {sweet.StockQuantity} left.");
+                        }
+
+                        // DEDUCT STOCK
+                        sweet.StockQuantity -= item.Quantity;
+
+                        // ADD ITEM WITH REAL PRICE
+                        var orderItem = new OrderItem
                         {
                             SweetId = item.SweetId,
                             Quantity = item.Quantity,
-                            Price = item.Price
-                        });
+                            Price = sweet.Price // <--- SECURITY FIX: Using DB Price, not Frontend Price
+                        };
+
+                        newOrder.OrderItems.Add(orderItem);
+
+                        // UPDATE TOTAL
+                        newOrder.TotalAmount += (sweet.Price * item.Quantity);
                     }
                 }
 
-                // 3. Save
+                // 3. Save Everything
                 _context.Orders.Add(newOrder);
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(); // Saves Order, Items, and updates Stock
+                await transaction.CommitAsync();
 
                 return CreatedAtAction(nameof(GetOrders), new { id = newOrder.Id }, newOrder);
             }
             catch (Exception ex)
             {
-                // THIS IS THE FIX: Return the REAL error to Swagger
+                await transaction.RollbackAsync();
                 var innerMessage = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
                 return StatusCode(500, $"Database Error: {innerMessage}");
             }
@@ -78,6 +97,29 @@ namespace SweetShopAPI.Controllers
                                  .ThenInclude(oi => oi.Sweet) // So we get the Sweet Name
                                  .OrderByDescending(o => o.OrderDate)
                                  .ToListAsync();
+        }
+
+        // PUT: api/orders/5/status
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] string newStatus)
+        {
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            // validate status
+            var validStatuses = new[] { "Pending", "Delivered", "Cancelled" };
+            if (!validStatuses.Contains(newStatus))
+            {
+                return BadRequest("Invalid Status");
+            }
+
+            order.Status = newStatus;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
     }
 }

@@ -13,7 +13,7 @@ namespace SweetShopAPI.Models
 
         // Database column is "Quantity" (Capital 'Q')
         [Column("Quantity")]
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
 
         // Database column is "Price" (Capital 'P')
         [Column("Price")]
